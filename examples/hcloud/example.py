@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum, unique
 from typing import Any, Dict, List, Union
 
-from fieldmarshal import Registry, Hook, struct, field
+from fieldmarshal import Registry, struct, field
 
 
 @unique
@@ -58,19 +58,11 @@ class ServerResponse:
     server: Server
 
 
-def unmarshal_dns_ptr(obj, type_hint, registry):
-    if isinstance(obj, str):
-        return obj
-    return registry.unmarshal(obj, List[DnsPtr])
-
-
 registry = Registry()
 
 # FIXME datetime.fromisoformat requires Python >= 3.7
 registry.add_unmarshal_hook(datetime, datetime.fromisoformat)
 registry.add_marshal_hook(datetime, lambda dt: dt.isoformat())
-
-registry.add_unmarshal_hook(Union[str, List[DnsPtr]], Hook(unmarshal_dns_ptr))
 
 
 def main(data):
