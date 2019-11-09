@@ -52,7 +52,7 @@ class Options:
 
     `unmarshal`
     :   A function to call to unmarshal data for this field. The function
-    :   will be passed the data bein unmarshalled as its only argument. This
+    :   will be passed the data being unmarshalled as its only argument. This
     :   hook overrides other unmarshal hooks registered for the field's type.
     """
     name: str = None
@@ -283,7 +283,7 @@ def _unmarshal_union(obj, type_hint, registry):
 @struct
 class Hook:
     """
-    Wrapper around a marshal or unmarshal hook.
+    Container for a marshal or unmarshal hooks.
 
     Can be used to specify that the hook accepts additional arguments other
     than the object being marshalled/unmarshalled.
@@ -370,11 +370,9 @@ class Registry:
         """
         Add a custom marshalling implementation for a type.
 
-        `type_` can be a class or a concrete type from the `typing` module,
-        such as `Union[list, str]`. The hook can either be a function that
-        takes one argument (the object being marshalled), or a `Hook` object,
-        which can be used to opt-in to receive the registry instance as an
-        additional argument.
+        The hook can either be a function that takes one argument (the object
+        being marshalled), or a `Hook` object, which can be used to opt-in to
+        receive the registry instance as an additional argument.
 
         The hook should return a JSON-compatible object. The hook will be
         called when an object of the specified type is encountered when
