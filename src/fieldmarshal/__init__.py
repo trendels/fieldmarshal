@@ -34,7 +34,7 @@ class Options:
 
     `name`
     :   Rename the field when marshalling/unmarshalling. Useful for example
-    :   for JSON attribte names that are not valid Python identifiers.
+    :   for JSON attribute names that are not valid Python identifiers.
 
     `omit`
     :   Ignore the field for the purpose of marshalling/unmarshalling. The
@@ -283,7 +283,7 @@ def _unmarshal_union(obj, type_hint, registry):
 @struct
 class Hook:
     """
-    Container for a marshal or unmarshal hooks.
+    Container for marshal or unmarshal hooks.
 
     Can be used to specify that the hook accepts additional arguments other
     than the object being marshalled/unmarshalled.
@@ -368,7 +368,7 @@ class Registry:
 
     def add_marshal_hook(self, type_, fn):
         """
-        Add a custom marshalling implementation for a type.
+        Add a custom marshal implementation for a type.
 
         The hook can either be a function that takes one argument (the object
         being marshalled), or a `Hook` object, which can be used to opt-in to
@@ -425,13 +425,13 @@ class Registry:
         """
         Unmarshal an object from a JSON string.
 
-        Like `unmarshal`, but accepts a JSON-encoded string.
+        Like `unmarshal`, but accepts a data in JSON format.
         """
         return self.unmarshal(json.loads(data), type_hint)
 
     def add_unmarshal_hook(self, type_, fn):
         """
-        Add a custom unmarshalling implementation for a type.
+        Add a custom unmarshal implementation for a type.
 
         `type_` can be a class or a concrete type from the `typing` module,
         such as `Union[list, str]`. The hook can either be a function that
