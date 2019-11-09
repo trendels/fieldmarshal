@@ -45,9 +45,7 @@ and `attr.ib`. The equivalent code with `attrs` is:
 ~~~
 
 This module provides marshalling/unmarshalling (or
-serialization/deserialization) of [attrs][1]-based "data classes" from and to JSON.
-
-It is inspired by Go's [`json.Marshal/json.Unmarshal`][2] and [cattrs][3].
+serialization/deserialization) of [attrs][1]-based "data classes" to and from JSON.
 
 The main goal is to make it easy to quickly build useful (partial) class
 representations for real-world JSON data, such as those received from HTTP APIs
@@ -62,6 +60,10 @@ Features:
     types (e.g. `Union`s)
 -   Built-in handling of common cases, such as `Enums`, simple `Union`s.
 -   Limited support for non-string dict keys (bool, int, float, Enum).
+-   Tries to be unobtrusive: Does not require subclassing and can work with
+    plain `attr`s-based classes.
+
+The API is inspired by Go's [`json.Marshal/json.Unmarshal`][2] and [cattrs][3].
 
 [1]: https://www.attrs.org/
 [2]: https://golang.org/pkg/encoding/json/
