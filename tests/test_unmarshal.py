@@ -3,26 +3,31 @@ from typing import Any, List, Tuple, Set, FrozenSet, Dict, Optional
 import attr
 import pytest
 from fieldmarshal import Registry, struct, unmarshal
+from pytest import raises as assert_raises
 
 
 @pytest.mark.parametrize('value', [
     1, 0, 0.1, 0.0, True, False, None,
 ])
-def test_unmarshal_simple_value(value):
+def test_unmarshal_scalar(value):
     assert unmarshal(value, type(value)) is value
 
 
 @pytest.mark.parametrize('value', [
     1, 0, 0.1, 0.0, True, False, None,
 ])
-def test_unmarshal_simple_value_any(value):
+def test_unmarshal_scalar(value):
     assert unmarshal(value, Any) is value
 
 
 @pytest.mark.parametrize('type_hint, result', [
+    #(list, [1, 2]),
     (List[int], [1, 2]),
+    #(tuple, (1, 2)),
     (Tuple[int, int], (1, 2)),
+    #(set, {1, 2}),
     (Set[int], {1, 2}),
+    #(frozenset, frozenset([1, 2])),
     (FrozenSet[int], frozenset([1, 2])),
 ])
 def test_unmarshal_list(type_hint, result):
@@ -68,3 +73,14 @@ def test_unmarshal_class():
     assert r.unmarshal({'value': 1}, Foo).value == 1
     assert r.unmarshal({'value': 1}, Optional[Foo]).value == 1
 
+
+# TODO check List[int], etc.
+#@pytest.mark.skip
+@pytest.mark.parametrize('value', [1, '1', True, .1, None]) #, [1], {'a': 1}])
+@pytest.mark.parametrize('type_', [int, str, bool, float, type(None)]) # , list, dict])
+def test_unmarshal_validate(value, type_):
+    if isinstance(value, type_):
+        assert unmarshal(value, type_) == value
+    else:
+        with assert_raises(TypeError):
+            unmarshal(value, type_)

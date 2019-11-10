@@ -85,7 +85,7 @@ DEFAULT_OPTIONS  = Options()
 IDENTITY = object()
 
 NONE_TYPE = type(None)
-SIMPLE_TYPES = (int, bool, float, str, NONE_TYPE)
+SCALAR_TYPES = (int, bool, float, str, NONE_TYPE)
 
 
 def _marshal_default(obj, registry):
@@ -185,26 +185,26 @@ def _unmarshal_list(obj, type_hint, registry):
     # in Python 3.6, List[int].__origin__ is List
     if type_hint.__origin__ in (list, List):
         item_type, = type_hint.__args__
-        if item_type in SIMPLE_TYPES:
+        if item_type in SCALAR_TYPES:
             return obj
         else:
             return [registry.unmarshal(item, item_type) for item in obj]
     elif type_hint.__origin__ in (tuple, Tuple):
         item_types = type_hint.__args__
-        if all([t in SIMPLE_TYPES for t in item_types]):
+        if all([t in SCALAR_TYPES for t in item_types]):
             return tuple(obj)
         else:
             return tuple([registry.unmarshal(item, type_)
                 for item, type_ in zip(obj, item_types)])
     elif type_hint.__origin__ in (set, Set):
         item_type, = type_hint.__args__
-        if item_type in SIMPLE_TYPES:
+        if item_type in SCALAR_TYPES:
             return set(obj)
         else:
             return set([registry.unmarshal(item, item_type) for item in obj])
     elif type_hint.__origin__ in (frozenset, FrozenSet):
         item_type, = type_hint.__args__
-        if item_type in SIMPLE_TYPES:
+        if item_type in SCALAR_TYPES:
             return set(obj)
         else:
             return frozenset([registry.unmarshal(item, item_type) for item in obj])
@@ -240,7 +240,7 @@ def _unmarshal_dict_key(key, type_, registry):
 def _unmarshal_dict(obj, type_hint, registry):
     if type_hint.__origin__ in (dict, Dict):
         key_type, value_type = type_hint.__args__
-        if value_type in SIMPLE_TYPES:
+        if value_type in SCALAR_TYPES:
             return {_unmarshal_dict_key(k, key_type, registry): v
                     for k, v in obj.items()}
         else:
@@ -271,13 +271,30 @@ def _unmarshal_union(obj, type_hint, registry):
             if registry.lookup_unmarshal_impl(cls, t) in registry._unmarshal_hooks
         ]):
         return obj
-    candidates = [t for t in union_types if t not in SIMPLE_TYPES]
+    candidates = [t for t in union_types if t not in SCALAR_TYPES]
     if len(candidates) == 1:
         type_ = candidates[0]
         if registry.lookup_unmarshal_impl(cls, type_) not in registry._unmarshal_hooks:
             return registry.unmarshal(obj, type_)
 
     raise TypeError("Can't unmarshal to %s: %r" % (type_hint, obj))
+
+# Lookup functions are called with the type of object being unmarshalled (cls),
+# the type to unmarshal to (type_hint) and the registry as arguments.
+# The job of the lookup function is to *validate* cls, which is a JSON-
+# compatible type, against type_hint, and return an unmarshal impl suitable
+# for the specific combination of (cls, type_hint), or _unmarshal_default.
+# Returning _unmarshal_default instead of raising TypeError means the
+# function can be used to speculatively lookup impls that might not exist.
+# Type_hint is the type or class the lookup was registered for, or a subclass
+# thereof.
+
+# type_hint: any of SCALAR_TYPES
+def _unmarshal_lookup_scalar(cls, type_hint, registry):
+    if not issubclass(cls, type_hint):
+        return _unmarshal_default
+    return IDENTITY
+
 
 
 @struct
@@ -296,6 +313,11 @@ class Hook:
     takes_args: bool = True
 
 
+@struct
+class Lookup:
+    fn: Any
+
+
 class Registry:
     def __init__(self):
         """
@@ -312,7 +334,7 @@ class Registry:
         self._unmarshal_hooks = set()
         self._field_options_cache = {}
 
-        for type_ in SIMPLE_TYPES:
+        for type_ in SCALAR_TYPES:
             self._marshal_impl_dispatch.register(type_, IDENTITY)
 
         self._marshal_impl_dispatch.register(list, _marshal_list)
@@ -324,8 +346,8 @@ class Registry:
         self._marshal_impl_dispatch.register(IntEnum, _marshal_enum)
         self._marshal_impl_dispatch.register(IntFlag, _marshal_enum)
 
-        for type_ in SIMPLE_TYPES:
-            self._unmarshal_impl_dispatch.register(type_, IDENTITY)
+        for type_ in SCALAR_TYPES:
+            self._unmarshal_impl_dispatch.register(type_, Lookup(_unmarshal_lookup_scalar))
 
         self._unmarshal_impl_dispatch.register(list, _unmarshal_list)
         self._unmarshal_impl_dispatch.register(tuple, _unmarshal_list)
@@ -469,6 +491,8 @@ class Registry:
             return self._unmarshal_hook_impl[type_hint]
         elif getattr(type_hint, '__mro__', None) is not None:
             impl = self._unmarshal_impl_dispatch.dispatch(type_hint)
+            if isinstance(impl, Lookup):
+                impl = impl.fn(cls, type_hint, self)
             if impl is _unmarshal_default and attr.has(type_hint):
                 return _unmarshal_attrs
             return impl
@@ -478,7 +502,10 @@ class Registry:
                 if origin is Union:
                     return _unmarshal_union
                 if getattr(origin, '__mro__', None) is not None:
-                    return self._unmarshal_impl_dispatch.dispatch(origin)
+                    impl = self._unmarshal_impl_dispatch.dispatch(origin)
+                    if isinstance(impl, Lookup):
+                        impl = impl.fn(cls, type_hint, self)
+                    return impl
 
         return _unmarshal_default
 

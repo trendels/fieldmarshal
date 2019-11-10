@@ -8,7 +8,7 @@ from fieldmarshal import Registry, struct, marshal
 @pytest.mark.parametrize('value', [
     1, 0, 0.1, 0.0, True, False, None,
 ])
-def test_marshal_simple_value(value):
+def test_marshal_scalar(value):
     assert marshal(value) is value
 
 
