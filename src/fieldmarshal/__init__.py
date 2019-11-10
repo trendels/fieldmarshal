@@ -85,7 +85,7 @@ DEFAULT_OPTIONS  = Options()
 IDENTITY = object()
 
 NONE_TYPE = type(None)
-SCALAR_TYPES = (int, bool, float, str, NONE_TYPE)
+SCALAR_TYPES = {int, bool, float, str, NONE_TYPE}
 
 
 def _marshal_default(obj, registry):
@@ -182,7 +182,7 @@ def _unmarshal_attrs(obj, type_hint, registry):
 
 
 def _unmarshal_dict_key(key, type_, registry):
-    if type_ in (int, float):
+    if type_ in {int, float}:
         obj = type_(key)
     elif type_ is bool:
         try:
