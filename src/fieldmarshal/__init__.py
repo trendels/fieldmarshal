@@ -312,18 +312,39 @@ def _resolve_union(cls, type_hint, registry):
             type_ = Union[non_optional]
             return registry.lookup_unmarshal_impl(cls, type_)
 
-    if cls in union_types and not any([
-            t for t in union_types if registry._hook_exists_for(cls, t)
-        ]):
+    # Bail if an unmarshal hook exists for any member of the union, since
+    # we can't know what type of input it accepts.
+    if any(t for t in union_types if registry._hook_exists_for(cls, t)):
+        raise TypeError(
+            "Can't resolve unmarshal implementation for %s to %s. "
+            "To resolve this, add an unmarshal Hook for %s to the registry."
+            % (cls, type_hint, type_hint)
+        )
+
+    # cls is a member of the union
+    if cls in union_types:
         return IDENTITY, cls
 
-    candidates = [t for t in union_types if t not in SCALAR_TYPES]
-    if len(candidates) == 1:
-        type_ = candidates[0]
-        if not registry._hook_exists_for(cls, type_):
+    # If cls is not a scalar type, try to reduce the union by removing non
+    # scalar-types.
+    if cls not in union_types and cls not in SCALAR_TYPES:
+        union_types = tuple(t for t in union_types if t not in SCALAR_TYPES)
+        type_ = Union[union_types]
+        if type_ != type_hint:
             return registry.lookup_unmarshal_impl(cls, type_)
 
-    raise TypeError("Cant unmarshal %s to %s" % (cls, type_hint))
+    # As a last resort, see if there is exactly one non-scalar type in the
+    # Union, and try that (even if cls is a scalar type, because it could be
+    # the value of an Enum).
+    candidates = [t for t in union_types if t not in SCALAR_TYPES]
+    if len(candidates) == 1:
+        return registry.lookup_unmarshal_impl(cls, candidates[0])
+
+    raise TypeError(
+        "Can't resolve unmarshal implementation for %s to %s. "
+        "To resolve this, add an unmarshal Hook for %s to the registry."
+        % (cls, type_hint, type_hint)
+    )
 
 
 @struct
@@ -439,7 +460,7 @@ class Registry:
 
     def lookup_marshal_impl(self, cls):
         """
-        Return the marshal implementation that would be used for `cls`.
+        Return the marshal implementation objects of type `cls`.
         """
         impl = self._marshal_impl_dispatch.dispatch(cls)
         if impl is _marshal_default and attr.has(cls):
@@ -509,15 +530,16 @@ class Registry:
 
     def lookup_unmarshal_impl(self, cls, type_hint):
         """
-        Return the unmarshal implementation that would be used for
-        unmarshalling data of type `cls` to an object of type `type_hint`.
+        Return the implementation and resolved type for unmarshalling data of
+        type `cls` to an object of type `type_int`.
+
+        The resolved type is the same as type_hint, except for Union types,
+        where it is one of the types from the Union.
         """
         if type_hint is Any:
             return IDENTITY, type_hint
         elif type_hint in self._unmarshal_hook_impl:
             return self._unmarshal_hook_impl[type_hint], type_hint
-        elif getattr(type_hint, '__origin__', None) is Union:
-            return _resolve_union(cls, type_hint, self)
         elif getattr(type_hint, '__mro__', None) is not None:
             lookup = self._unmarshal_lookup_dispatch.dispatch(type_hint)
             impl = lookup(cls, type_hint, self)
@@ -526,6 +548,8 @@ class Registry:
             return impl, type_hint
         else:
             origin = getattr(type_hint, '__origin__', None)
+            if origin is Union:
+                return _resolve_union(cls, type_hint, self)
             if origin is not None:
                 if getattr(origin, '__mro__', None) is not None:
                     lookup = self._unmarshal_lookup_dispatch.dispatch(origin)

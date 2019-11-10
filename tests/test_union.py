@@ -60,6 +60,16 @@ def test_resolve_union():
     assert r.unmarshal({'name': 'x'}, Union[Foo, Bar]) == Bar('x')
     assert r.unmarshal({'name': 'x'}, Optional[Union[Foo, Bar]]) == Bar('x')
 
+    assert r.unmarshal(1, Union[int, Foo, Bar]) == 1
+    assert r.unmarshal({'value': 1}, Union[int, Foo, Bar]) == Foo(1)
+
+    @struct
+    class Quux:
+        value: str
+
+    with assert_raises(TypeError):
+        r.unmarshal(1 , Union[Foo, Bar, Quux])
+
 
 def test_cant_unmarshal_union_types_having_hook():
     @struct
