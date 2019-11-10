@@ -74,13 +74,19 @@ def test_unmarshal_class():
     assert r.unmarshal({'value': 1}, Optional[Foo]).value == 1
 
 
-# TODO check List[int], etc.
-#@pytest.mark.skip
-@pytest.mark.parametrize('value', [1, '1', True, .1, None]) #, [1], {'a': 1}])
-@pytest.mark.parametrize('type_', [int, str, bool, float, type(None)]) # , list, dict])
+@pytest.mark.parametrize('value', [1, '1', True, .1, None, [1], {'a': 1}])
+@pytest.mark.parametrize('type_', [int, str, bool, float, type(None), list, dict])
 def test_unmarshal_validate(value, type_):
     if isinstance(value, type_):
         assert unmarshal(value, type_) == value
     else:
         with assert_raises(TypeError):
             unmarshal(value, type_)
+
+
+def test_unmarshal_validate_typing():
+    with assert_raises(TypeError):
+        unmarshal(1, List[str])
+
+    with assert_raises(TypeError):
+        unmarshal({'a': 1}, List[str, str])
