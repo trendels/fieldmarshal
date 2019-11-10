@@ -206,30 +206,6 @@ def _unmarshal_dict_key(key, type_, registry):
     return registry.unmarshal(obj, type_)
 
 
-def _unmarshal_union(obj, type_hint, registry):
-    cls = obj.__class__
-    union_types = type_hint.__args__
-    # Special-case Optional[]
-    if NONE_TYPE in union_types:
-        if obj is None:
-            return None
-        else:
-            not_none = tuple(t for t in union_types if t is not NONE_TYPE)
-            return registry.unmarshal(obj, Union[not_none])
-    # TODO this is expensive and should be cached.
-    if cls in union_types and not any([
-            t for t in union_types
-            if registry.lookup_unmarshal_impl(cls, t) in registry._unmarshal_hooks
-        ]):
-        return obj
-    candidates = [t for t in union_types if t not in SCALAR_TYPES]
-    if len(candidates) == 1:
-        type_ = candidates[0]
-        if registry.lookup_unmarshal_impl(cls, type_) not in registry._unmarshal_hooks:
-            return registry.unmarshal(obj, type_)
-
-    raise TypeError("Can't unmarshal to %s: %r" % (type_hint, obj))
-
 # Lookup functions are called with the type of object being unmarshalled (cls),
 # the type to unmarshal to (type_hint) and the registry as arguments.
 # The job of the lookup function is to *validate* cls, which is a JSON-
@@ -324,6 +300,31 @@ def _unmarshal_lookup_int_enum(cls, type_hint, registry):
     return lambda obj, type_, _: type_(obj)
 
 
+def _resolve_union(cls, type_hint, registry):
+    union_types = type_hint.__args__
+
+    # Optional[…]
+    if NONE_TYPE in union_types:
+        if cls is NONE_TYPE:
+            return IDENTITY, NONE_TYPE
+        else:
+            non_optional = tuple(t for t in union_types if t is not NONE_TYPE)
+            type_ = Union[non_optional]
+            return registry.lookup_unmarshal_impl(cls, type_)
+
+    if cls in union_types and not any([
+            t for t in union_types if registry._hook_exists_for(cls, t)
+        ]):
+        return IDENTITY, cls
+
+    candidates = [t for t in union_types if t not in SCALAR_TYPES]
+    if len(candidates) == 1:
+        type_ = candidates[0]
+        if not registry._hook_exists_for(cls, type_):
+            return registry.lookup_unmarshal_impl(cls, type_)
+
+    raise TypeError("Cant unmarshal %s to %s" % (cls, type_hint))
+
 
 @struct
 class Hook:
@@ -383,8 +384,6 @@ class Registry:
 
         for type_ in (Flag, IntEnum, IntFlag):
             self._unmarshal_lookup_dispatch.register(type_, _unmarshal_lookup_int_enum)
-
-
 
 
     def marshal(self, obj):
@@ -462,14 +461,14 @@ class Registry:
         """
         key = (obj.__class__, type_hint)
         try:
-            impl = self._unmarshal_impl_cache[key]
+            impl, type_ = self._unmarshal_impl_cache[key]
         except KeyError:
-            impl = self.lookup_unmarshal_impl(*key)
-            self._unmarshal_impl_cache[key] = impl
+            impl, type_ = self.lookup_unmarshal_impl(*key)
+            self._unmarshal_impl_cache[key] = impl, type_
         if impl is IDENTITY:
             return obj
         else:
-            return impl(obj, type_hint, self)
+            return impl(obj, type_, self)
 
     def unmarshal_json(self, data, type_hint):
         """
@@ -514,28 +513,26 @@ class Registry:
         unmarshalling data of type `cls` to an object of type `type_hint`.
         """
         if type_hint is Any:
-            return IDENTITY
-        # TODO find impl for Type here if type_hint is Optional[Type]?
-        if type_hint in self._unmarshal_hook_impl:
-            return self._unmarshal_hook_impl[type_hint]
+            return IDENTITY, type_hint
+        elif type_hint in self._unmarshal_hook_impl:
+            return self._unmarshal_hook_impl[type_hint], type_hint
+        elif getattr(type_hint, '__origin__', None) is Union:
+            return _resolve_union(cls, type_hint, self)
         elif getattr(type_hint, '__mro__', None) is not None:
             lookup = self._unmarshal_lookup_dispatch.dispatch(type_hint)
             impl = lookup(cls, type_hint, self)
             if impl is _unmarshal_default and attr.has(type_hint):
-                return _unmarshal_attrs
-            return impl
+                return _unmarshal_attrs, type_hint
+            return impl, type_hint
         else:
-            #print('*** %s does not have mro' % type_hint)
             origin = getattr(type_hint, '__origin__', None)
             if origin is not None:
-                if origin is Union:
-                    return _unmarshal_union
                 if getattr(origin, '__mro__', None) is not None:
                     lookup = self._unmarshal_lookup_dispatch.dispatch(origin)
                     impl = lookup(cls, type_hint, self)
-                    return impl
+                    return impl, type_hint
 
-        return _unmarshal_default
+        return _unmarshal_default, type_hint
 
     def clear_cache(self):
         """
@@ -548,6 +545,10 @@ class Registry:
         self._marshal_impl_dispatch._clear_cache()
         self._unmarshal_lookup_dispatch._clear_cache()
         self._field_options_cache.clear()
+
+    def _hook_exists_for(self, cls, type_hint):
+        impl, _ = self.lookup_unmarshal_impl(cls, type_hint)
+        return impl in self._unmarshal_hooks
 
 
 DEFAULT_REGISTRY = Registry()
