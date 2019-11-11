@@ -21,13 +21,13 @@ def test_unmarshal_scalar(value):
 
 
 @pytest.mark.parametrize('type_hint, result', [
-    #(list, [1, 2]),
+    (list, [1, 2]),
     (List[int], [1, 2]),
-    #(tuple, (1, 2)),
+    (tuple, (1, 2)),
     (Tuple[int, int], (1, 2)),
-    #(set, {1, 2}),
+    (set, {1, 2}),
     (Set[int], {1, 2}),
-    #(frozenset, frozenset([1, 2])),
+    (frozenset, frozenset([1, 2])),
     (FrozenSet[int], frozenset([1, 2])),
 ])
 def test_unmarshal_list(type_hint, result):

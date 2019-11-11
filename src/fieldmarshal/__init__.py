@@ -1,3 +1,4 @@
+import sys
 import json
 from enum import Enum, Flag, IntEnum, IntFlag
 from functools import partial, singledispatch, wraps
@@ -22,6 +23,9 @@ __all__ = [
     'DEFAULT_OPTIONS',
     'DEFAULT_REGISTRY',
 ]
+
+
+PY36 = sys.version_info[:2] == (3, 6)
 
 
 struct = partial(attr.s, slots=True, auto_attribs=True)
@@ -251,6 +255,11 @@ def _unmarshal_tuple(obj, type_hint, registry):
 
 def _unmarshal_set_frozenset(obj, type_hint, registry):
     type_ = type_hint.__origin__
+    if PY36:
+        if type_ is Set:
+            type_ = set
+        elif type_ is FrozenSet:
+            type_ = frozenset
     item_type, = type_hint.__args__
     return type_([registry.unmarshal(item, item_type) for item in obj])
 
@@ -270,12 +279,16 @@ def _unmarshal_lookup_list(cls, type_hint, registry):
         return IDENTITY
     elif type_hint in {tuple, set, frozenset}:
         return lambda obj, type_, __: type_(obj)
-    # in Python 3.6, List[int].__origin__ is List, etc.
-    elif type_hint.__origin__ in {list, List}:
+
+    type_ = type_hint.__origin__
+    if PY36:
+        type_ = {List: list, Tuple: tuple, Set: set, FrozenSet: frozenset}[type_]
+
+    if type_ is list:
         return _unmarshal_list
-    elif type_hint.__origin__ in {tuple, Tuple}:
+    elif type_ is tuple:
         return _unmarshal_tuple
-    elif type_hint.__origin__ in {set, Set, frozenset, FrozenSet}:
+    elif type_ in {set, frozenset}:
         return _unmarshal_set_frozenset
 
     raise TypeError("Can't unmarshal %s to %s" % (cls, type_hint))
