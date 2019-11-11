@@ -6,6 +6,7 @@ python:
 install:
   - pip install -r requirements.txt
 script:
+  - make init
   - make test
 notifications:
   email: false
