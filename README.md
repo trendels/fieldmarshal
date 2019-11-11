@@ -1,5 +1,7 @@
 # fieldmarshal – marshal/unmarshal attrs-based data classes to and from JSON
 
+[![Build Status](https://travis-ci.org/trendels/fieldmarshal.svg?branch=master)](https://travis-ci.org/trendels/fieldmarshal)
+
 **Note: This is module is still in development - APIs might change in
 backwards-incompatible ways.**
 
