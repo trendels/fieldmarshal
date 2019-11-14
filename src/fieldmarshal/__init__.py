@@ -36,28 +36,28 @@ class Options:
     """
     Field options control how a field is marshalled/unmarshalled.
 
-    `name`
+    name
     :   Rename the field when marshalling/unmarshalling. Useful for example
-    :   for JSON attribute names that are not valid Python identifiers.
-
-    `omit`
+        for JSON attribute names that are not valid Python identifiers.
+    omit
     :   Ignore the field for the purpose of marshalling/unmarshalling. The
-    :   field value will neither be read nor written to. The field should
-    :   also have a default value for the class to support unmarshalling.
-
-    `omit_if_none`
+        field value will neither be read nor written to. The field should
+        also have a default value for the class to support unmarshalling.
+    omit_if_none
     :   Omit the field when marshalling if it's value is `None`. When
-    :   unmarshalling, the field will be read as normal.
-
-    `marshal`
+        unmarshalling, the field will be read as normal.
+    marshal
     :   A function to call to marshal the contents of this field. The function
-    :   will be passed the field value as its only argument. This hook
-    :   overrides other marshal hooks registered for the field's type.
-
-    `unmarshal`
+        will be passed the field value as its only argument. This hook
+        overrides other marshal hooks registered for the field's type.
+     unmarshal
     :   A function to call to unmarshal data for this field. The function
-    :   will be passed the data being unmarshalled as its only argument. This
-    :   hook overrides other unmarshal hooks registered for the field's type.
+        will be passed the data being unmarshalled as its only argument. This
+        hook overrides other unmarshal hooks registered for the field's type.
+
+    For `fieldmarshal` to recognize these options, put the `Options` object
+    into the field's `metadata` dict under the "fieldmarshal" key, or use the
+    `field` helper in place of `attr.s`.
     """
     name: str = None
     omit: bool = False
@@ -330,7 +330,7 @@ def _resolve_union(cls, type_hint, registry):
     if any(t for t in union_types if registry._hook_exists_for(cls, t)):
         raise TypeError(
             "Can't resolve unmarshal implementation for %s to %s. "
-            "To resolve this, add an unmarshal Hook for %s to the registry."
+            "To resolve this, add an unmarshal hook for %s to the registry."
             % (cls, type_hint, type_hint)
         )
 
@@ -355,7 +355,7 @@ def _resolve_union(cls, type_hint, registry):
 
     raise TypeError(
         "Can't resolve unmarshal implementation for %s to %s. "
-        "To resolve this, add an unmarshal Hook for %s to the registry."
+        "To resolve this, add an unmarshal hook for %s to the registry."
         % (cls, type_hint, type_hint)
     )
 
@@ -365,10 +365,7 @@ class Hook:
     """
     Container for marshal or unmarshal hooks.
 
-    Can be used to specify that the hook accepts additional arguments other
-    than the object being marshalled/unmarshalled.
-
-    When `takes_args` is True (the default), additional arguments will be
+    When `takes_args` is `True` (the default), additional arguments will be
     passed to the hook. The type of arguments depends on the type of hook. See
     `Registry.add_marshal_hook` and `Registry.add_unmarshal_hook` for details.
     """
@@ -458,10 +455,9 @@ class Registry:
         receive the registry instance as an additional argument.
 
         The hook should return a JSON-compatible object. The hook will be
-        called when an object of the specified type is encountered when
-        marshalling. If `type_` is a class, the hook will also be used
-        for instances of subclasses of `type_`, unless a more specific
-        hook can be found.
+        called when an object of type *type_* is encountered when marshalling.
+        The hook will also be used for instances of subclasses of *type_*,
+        unless a more specific hook can be found.
         """
         hook = fn if isinstance(fn, Hook) else Hook(fn, False)
         if hook.takes_args:
@@ -473,7 +469,7 @@ class Registry:
 
     def lookup_marshal_impl(self, cls):
         """
-        Return the marshal implementation objects of type `cls`.
+        Return the marshal implementation objects of type *cls*.
         """
         impl = self._marshal_impl_dispatch.dispatch(cls)
         if impl is _marshal_default and attr.has(cls):
@@ -485,10 +481,10 @@ class Registry:
         Unmarshal an object from a JSON-compatible data structure.
 
         The data structure must contain only objects of type `list`, `dict`
-        (with string keys), `int`, `float`, `str`, `bool` or `NoneType`, such
+        (with `str` keys), `int`, `float`, `str`, `bool` or `NoneType`, such
         as returned by `marshal`.
 
-        `type_hint` specifies the type of object to create. This can be a class
+        *type_hint* specifies the type of object to create. This can be a class
         or a concrete type from the `typing` module, such as `List[int]`.
 
         The reverse operation is `marshal`.
@@ -516,7 +512,7 @@ class Registry:
         """
         Add a custom unmarshal implementation for a type.
 
-        `type_` can be a class or a concrete type from the `typing` module,
+        *type_* can be a class or a concrete type from the `typing` module,
         such as `Union[list, str]`. The hook can either be a function that
         takes one argument (the object being unmarshalled), or a `Hook` object,
         which can be used to opt-in to receive the type the object is being
@@ -525,9 +521,9 @@ class Registry:
         registered for (it could be a subclass, for example).
 
         The hook will be called when data needs to be marshalled to an object
-        of the specified type. If `type_` is a class, the hook will also be
-        used for instances of subclasses of `type_`, unless a more specific
-        hook can be found.
+        of type *type_*. If *type_* is a class, the hook will also be used for
+        unmarshalling to subclasses of *type_*, unless a more specific hook
+        can be found.
         """
         hook = fn if isinstance(fn, Hook) else Hook(fn, False)
         if hook.takes_args:
@@ -544,10 +540,10 @@ class Registry:
     def lookup_unmarshal_impl(self, cls, type_hint):
         """
         Return the implementation and resolved type for unmarshalling data of
-        type `cls` to an object of type `type_int`.
+        type *cls* to an object of type *type_int*.
 
-        The resolved type is the same as type_hint, except for Union types,
-        where it is one of the types from the Union.
+        The resolved type is the same as *type_hint*, except for union types,
+        where it is one of the members of the union.
         """
         if type_hint is Any:
             return IDENTITY, type_hint
