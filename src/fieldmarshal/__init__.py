@@ -14,7 +14,7 @@ __all__ = [
     'marshal_json',
     'struct',
     'unmarshal',
-    'unmarshal_json'
+    'unmarshal_json',
 
     'Hook',
     'Options',
