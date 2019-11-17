@@ -3,6 +3,12 @@ from typing import List
 import attr
 import pytest
 from fieldmarshal import Registry, struct, marshal
+from pytest import raises as assert_raises
+
+
+def test_marshal_default():
+    with assert_raises(TypeError):
+        marshal(object())
 
 
 @pytest.mark.parametrize('value', [

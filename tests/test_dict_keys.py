@@ -2,11 +2,16 @@ from enum import Enum
 from pytest import raises as assert_raises
 from typing import Any, Dict, Union
 
-from fieldmarshal import unmarshal
+from fieldmarshal import marshal, unmarshal
 
 
 class MyEnum(Enum):
     A = 'a'
+
+
+def test_default():
+    with assert_raises(TypeError):
+        marshal({(1, 2): '1'})
 
 
 def test_union():
