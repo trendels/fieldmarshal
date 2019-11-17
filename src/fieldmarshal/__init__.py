@@ -36,28 +36,27 @@ class Options:
     """
     Field options control how a field is marshalled/unmarshalled.
 
-    name
-    :   Rename the field when marshalling/unmarshalling. Useful for example
-        for JSON attribute names that are not valid Python identifiers.
-    omit
-    :   Ignore the field for the purpose of marshalling/unmarshalling. The
-        field value will neither be read nor written to. The field should
-        also have a default value for the class to support unmarshalling.
-    omit_if_none
-    :   Omit the field when marshalling if it's value is `None`. When
-        unmarshalling, the field will be read as normal.
-    marshal
-    :   A function to call to marshal the contents of this field. The function
-        will be passed the field value as its only argument. This hook
-        overrides other marshal hooks registered for the field's type.
-     unmarshal
-    :   A function to call to unmarshal data for this field. The function
-        will be passed the data being unmarshalled as its only argument. This
-        hook overrides other unmarshal hooks registered for the field's type.
+    :param str name: Rename the field when marshalling/unmarshalling. Useful
+        for example for JSON attribute names that are not valid Python
+        identifiers.
+    :param bool omit: Ignore the field for the purpose of
+        marshalling/unmarshalling. The field value will neither be read nor
+        written to. The field should also have a default value for the class to
+        support unmarshalling.
+    :param bool omit_if_none: Omit the field when marshalling if it's value is
+        ``None``. When unmarshalling, the field will be read as normal.
+    :param callable marshal: A function to call to marshal the contents of this
+        field. The function will be passed the field value as its only
+        argument. This hook overrides other marshal hooks registered for the
+        field's type.
+    :param callable unmarshal: A function to call to unmarshal data for this
+        field. The function will be passed the data being unmarshalled as its
+        only argument. This hook overrides other unmarshal hooks registered for
+        the field's type.
 
-    For `fieldmarshal` to recognize these options, put the `Options` object
-    into the field's `metadata` dict under the "fieldmarshal" key, or use the
-    `field` helper in place of `attr.s`.
+    For ``fieldmarshal`` to recognize these options, put the object into the
+    field's ``metadata`` dict under the "fieldmarshal" key, or use the
+    :func:`field` helper in place of ``attr.s``.
     """
     name: str = None
     omit: bool = False
@@ -68,10 +67,11 @@ class Options:
 
 def field(name=None, omit=False, omit_if_none=False, marshal=None, unmarshal=None, **kw):
     """
-    Wrapper around `attr.ib` that accepts additional arguments.
+    Wrapper around ``attr.ib`` that accepts additional arguments.
 
-    Arguments that control marshalling are saved as an `Options` object
-    in the fields metadata under the 'fieldmarshal' key.
+    Arguments that control marshalling are saved as an :class:`Options` object
+    in the fields metadata under the "fieldmarshal" key. See
+    :class:`Options` for the meaning of these parameters.
     """
     metadata = kw.setdefault('metadata', {})
     metadata['fieldmarshal'] = Options(
@@ -365,10 +365,13 @@ class Hook:
     """
     Container for marshal or unmarshal hooks.
 
-    When `takes_args` is `True` (the default), additional arguments will be
+    :param callable fn: Marshal hook
+    :param bool takes_args: Whether or not *fn* takes additional arguments
+
+    When `takes_args` is ``True`` (the default), additional arguments will be
     passed to the hook. The type of arguments depends on the type of hook. See
-    `Registry.add_marshal_hook` and `Registry.add_unmarshal_hook` for details.
-    """
+    :meth:`Registry.add_marshal_hook` and :meth:`Registry.add_unmarshal_hook`
+    for details. """
     fn: Any
     takes_args: bool = True
 
@@ -421,11 +424,12 @@ class Registry:
         """
         Marshal an object to a JSON-compatible data structure.
 
-        The resulting data structure contains only objects of type
-        `list`, `dict` (with string keys), `int`, `float`, `str`, `bool` or
-        `NoneType` and can be converted to JSON without further modifications.
+        The resulting data structure contains only objects of type ``list``,
+        ``dict`` (with string keys), ``int``, ``float``, ``str``, ``bool`` or
+        ``NoneType`` and can be converted to JSON without further
+        modifications.
 
-        The reverse operation is `unmarshal`.
+        The reverse operation is :meth:`unmarshal`.
         """
         key = obj.__class__
         try:
@@ -442,7 +446,7 @@ class Registry:
         """
         Marshal an object to a JSON string.
 
-        Like `marshal`, but converts the result to JSON.
+        Like :meth:`marshal`, but converts the result to JSON.
         """
         return json.dumps(self.marshal(obj))
 
@@ -451,8 +455,8 @@ class Registry:
         Add a custom marshal implementation for a type.
 
         The hook can either be a function that takes one argument (the object
-        being marshalled), or a `Hook` object, which can be used to opt-in to
-        receive the registry instance as an additional argument.
+        being marshalled), or a :class:`Hook` object, which can be used to
+        opt-in to receive the registry instance as an additional argument.
 
         The hook should return a JSON-compatible object. The hook will be
         called when an object of type *type_* is encountered when marshalling.
@@ -480,14 +484,15 @@ class Registry:
         """
         Unmarshal an object from a JSON-compatible data structure.
 
-        The data structure must contain only objects of type `list`, `dict`
-        (with `str` keys), `int`, `float`, `str`, `bool` or `NoneType`, such
-        as returned by `marshal`.
+        The data structure must contain only objects of type ``list``, ``dict``
+        (with ``str`` keys), ``int``, ``float``, ``str``, ``bool`` or
+        ``NoneType``, such as returned by :meth:`marshal`.
 
         *type_hint* specifies the type of object to create. This can be a class
-        or a concrete type from the `typing` module, such as `List[int]`.
+        or a concrete type from the :mod:`typing` module, such as
+        ``List[int]``.
 
-        The reverse operation is `marshal`.
+        The reverse operation is :meth:`marshal`.
         """
         key = (obj.__class__, type_hint)
         try:
@@ -504,7 +509,7 @@ class Registry:
         """
         Unmarshal an object from a JSON string.
 
-        Like `unmarshal`, but accepts a data in JSON format.
+        Like :meth:`unmarshal`, but accepts a data in JSON format.
         """
         return self.unmarshal(json.loads(data), type_hint)
 
@@ -512,13 +517,13 @@ class Registry:
         """
         Add a custom unmarshal implementation for a type.
 
-        *type_* can be a class or a concrete type from the `typing` module,
-        such as `Union[list, str]`. The hook can either be a function that
-        takes one argument (the object being unmarshalled), or a `Hook` object,
-        which can be used to opt-in to receive the type the object is being
-        unmarshalled to and the registry instance as additional arguments. The
-        type passed this way is not necessarily the type the hook was
-        registered for (it could be a subclass, for example).
+        *type_* can be a class or a concrete type from the :mod:`typing` module,
+        such as ``Union[list, str]``. The hook can either be a function that
+        takes one argument (the object being unmarshalled), or a :class:`Hook`
+        object, which can be used to opt-in to receive the type the object is
+        being unmarshalled to and the registry instance as additional
+        arguments. The type passed this way is not necessarily the type the
+        hook was registered for (it could be a subclass, for example).
 
         The hook will be called when data needs to be marshalled to an object
         of type *type_*. If *type_* is a class, the hook will also be used for
