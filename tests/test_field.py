@@ -1,3 +1,4 @@
+import attr
 from fieldmarshal import Registry, struct, field, marshal, unmarshal
 from pytest import raises as assert_raises
 
@@ -12,7 +13,7 @@ def test_rename_field():
 
 
 def test_omit_fields():
-    @struct(auto_attribs=False)
+    @attr.s
     class Foo:
         a = field(omit_if_none=True)
         b = field(omit=True, default=None)

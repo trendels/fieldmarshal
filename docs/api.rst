@@ -3,10 +3,7 @@ API Reference
 
 .. currentmodule:: fieldmarshal
 
-.. function:: struct(slots=True, auto_attribts=True, \*\*kw)
-
-   Wrapper around ``attr.s``. Takes the same arguments but defaults to
-   ``slots=True`` and ``auto_attribs=True``.
+.. autofunction:: struct
 
 .. autofunction:: field
 

@@ -12,16 +12,6 @@ def test_struct():
     assert 'value' in Foo.__slots__
 
 
-def test_struct_override():
-    @struct(slots=False, auto_attribs=False)
-    class Foo:
-        value = attr.ib()
-
-    assert attr.has(Foo)
-    assert attr.fields(Foo).value.type is None
-    assert getattr(Foo, '__slots__', None) is None
-
-
 def test_field():
     @struct
     class Foo:

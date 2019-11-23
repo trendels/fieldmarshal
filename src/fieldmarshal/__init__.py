@@ -1,7 +1,7 @@
 import sys
 import json
 from enum import Enum, Flag, IntEnum, IntFlag
-from functools import partial, singledispatch, wraps
+from functools import singledispatch, wraps
 from typing import Any, List, Tuple, Set, FrozenSet, Dict, Union
 
 import attr
@@ -28,7 +28,14 @@ __all__ = [
 PY36 = sys.version_info[:2] == (3, 6)
 
 
-struct = partial(attr.s, slots=True, auto_attribs=True)
+def struct(*args, **kw):
+    """
+    Wrapper around ``attr.s``.
+
+    Sets ``slots=True`` and ``auto_attribs=True``. All other arguments are
+    forwared to ``attr.s``.
+    """
+    return attr.s(*args, slots=True, auto_attribs=True, **kw)
 
 
 @struct
