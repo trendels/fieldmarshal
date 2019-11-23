@@ -247,10 +247,15 @@ def _unmarshal_list(obj, type_hint, registry):
     return [registry.unmarshal(item, item_type) for item in obj]
 
 
-def _unmarshal_tuple(obj, type_hint, registry):
+def _unmarshal_tuple_fixed_length(obj, type_hint, registry):
     item_types = type_hint.__args__
     return tuple([registry.unmarshal(item, type_)
         for item, type_ in zip(obj, item_types)])
+
+
+def _unmarshal_tuple_variable_length(obj, type_hint, registry):
+    item_type, _ = type_hint.__args__
+    return tuple([registry.unmarshal(item, item_type) for item in obj])
 
 
 def _unmarshal_set_frozenset(obj, type_hint, registry):
@@ -287,7 +292,11 @@ def _unmarshal_lookup_list(cls, type_hint, registry):
     if type_ is list:
         return _unmarshal_list
     elif type_ is tuple:
-        return _unmarshal_tuple
+        args = type_hint.__args__
+        if len(args) == 2 and args[1] is Ellipsis:
+            return _unmarshal_tuple_variable_length
+        else:
+            return _unmarshal_tuple_fixed_length
     elif type_ in {set, frozenset}:
         return _unmarshal_set_frozenset
 

@@ -25,6 +25,7 @@ def test_unmarshal_scalar(value):
     (List[int], [1, 2]),
     (tuple, (1, 2)),
     (Tuple[int, int], (1, 2)),
+    (Tuple[int, ...], (1, 2)),
     (set, {1, 2}),
     (Set[int], {1, 2}),
     (frozenset, frozenset([1, 2])),
