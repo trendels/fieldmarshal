@@ -28,6 +28,10 @@ __all__ = [
 PY36 = sys.version_info[:2] == (3, 6)
 
 
+class MarshalError(TypeError): pass
+class UnmarshalError(TypeError): pass
+
+
 def struct(*args, **kw):
     """
     Wrapper around ``attr.s``.
@@ -100,7 +104,7 @@ SCALAR_TYPES = {int, bool, float, str, NONE_TYPE}
 
 
 def _marshal_default(obj, registry):
-    raise TypeError("Can't marshal %r" % obj)
+    raise MarshalError("Can't marshal %r" % obj)
 
 
 def _marshal_attrs(obj, registry):
@@ -151,7 +155,7 @@ def _marshal_dict_key(key, registry):
     elif isinstance(obj, (int, float)):
         return str(obj)
     else:
-        raise TypeError("Can't marshal dict key: %r" % key)
+        raise MarshalError("Can't marshal dict key: %r" % (key,))
 
 
 def _marshal_dict(obj, registry):
@@ -164,7 +168,7 @@ def _marshal_enum(obj, registry):
 
 
 def _unmarshal_default(obj, type_hint, registry):
-    raise TypeError("Can't unmarshal to %s: %r" % (type_hint, obj))
+    raise UnmarshalError("Can't unmarshal to %s: %r" % (type_hint, obj))
 
 
 def _unmarshal_attrs(obj, type_hint, registry):
@@ -180,11 +184,11 @@ def _unmarshal_attrs(obj, type_hint, registry):
             name = field.name if options.name is None else options.name
             try:
                 value = obj[name]
-            except KeyError:
+            except KeyError as e:
                 if field.default is not attr.NOTHING:
                     value = field.default
                 else:
-                    raise
+                    raise UnmarshalError('missing key: %r' % name) from e
             if options.unmarshal is not None:
                 kw[field.name] = options.unmarshal(value)
             else:
@@ -199,14 +203,14 @@ def _unmarshal_dict_key(key, type_, registry):
         try:
             obj = {'true': True, 'false': False}[key]
         except KeyError:
-            raise ValueError(
+            raise UnmarshalError(
                 "Error converting dict key to bool. Expected 'true' or 'false', got %r" % key
             ) from None
     elif type_ is NONE_TYPE:
         try:
             obj = {'null': None}[key]
         except KeyError:
-            raise ValueError(
+            raise UnmarshalError(
                 "Error converting dict key to NoneType. Expected 'null', got %r" % key
             ) from None
     elif getattr(type_, '__mro__', None) is not None and issubclass(type_, (Flag, IntEnum, IntFlag)):
@@ -222,7 +226,7 @@ def _unmarshal_dict_key(key, type_, registry):
 # The job of the lookup function is to *validate* cls, which is a JSON-
 # compatible type, against type_hint, and return an unmarshal impl suitable
 # for the specific combination of (cls, type_hint), or _unmarshal_default.
-# Returning _unmarshal_default instead of raising TypeError means the
+# Returning _unmarshal_default instead of raising UnmarshalError means the
 # function can be used to speculatively lookup impls that might not exist.
 # Type_hint is the type or class the lookup was registered for, or a subclass
 # thereof.
@@ -256,6 +260,11 @@ def _unmarshal_list(obj, type_hint, registry):
 
 def _unmarshal_tuple_fixed_length(obj, type_hint, registry):
     item_types = type_hint.__args__
+    if len(obj) != len(item_types):
+        raise UnmarshalError(
+            "Wrong number of elements: expected %d, got %d"
+            % (len(item_types), len(obj))
+        )
     return tuple([registry.unmarshal(item, type_)
         for item, type_ in zip(obj, item_types)])
 
@@ -307,7 +316,7 @@ def _unmarshal_lookup_list(cls, type_hint, registry):
     elif type_ in {set, frozenset}:
         return _unmarshal_set_frozenset
 
-    raise TypeError("Can't unmarshal %s to %s" % (cls, type_hint))
+    raise UnmarshalError("Can't unmarshal %s to %s" % (cls, type_hint))
 
 
 # type_hint: dict or Dict[…]
@@ -344,7 +353,7 @@ def _resolve_union(cls, type_hint, registry):
     # Bail if an unmarshal hook exists for any member of the union, since
     # we can't know what type of input it accepts.
     if any(t for t in union_types if registry._hook_exists_for(cls, t)):
-        raise TypeError(
+        raise UnmarshalError(
             "Can't resolve unmarshal implementation for %s to %s. "
             "To resolve this, add an unmarshal hook for %s to the registry."
             % (cls, type_hint, type_hint)
@@ -369,7 +378,7 @@ def _resolve_union(cls, type_hint, registry):
     if len(candidates) == 1:
         return registry.lookup_unmarshal_impl(cls, candidates[0])
 
-    raise TypeError(
+    raise UnmarshalError(
         "Can't resolve unmarshal implementation for %s to %s. "
         "To resolve this, add an unmarshal hook for %s to the registry."
         % (cls, type_hint, type_hint)
@@ -445,6 +454,9 @@ class Registry:
         ``NoneType`` and can be converted to JSON without further
         modifications.
 
+        Raises ``MarshalError`` if an object is encountered that cannot be
+        marshalled.
+
         The reverse operation is :meth:`unmarshal`.
         """
         key = obj.__class__
@@ -507,6 +519,9 @@ class Registry:
         *type_hint* specifies the type of object to create. This can be a class
         or a concrete type from the :mod:`typing` module, such as
         ``List[int]``.
+
+        Raises ``UnmarshalError`` if the data cannot be unmarshalled to the
+        desired type.
 
         The reverse operation is :meth:`marshal`.
         """

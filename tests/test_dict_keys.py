@@ -2,7 +2,7 @@ from enum import Enum
 from pytest import raises as assert_raises
 from typing import Any, Dict, Union
 
-from fieldmarshal import marshal, unmarshal
+from fieldmarshal import MarshalError, UnmarshalError, marshal, unmarshal
 
 
 class MyEnum(Enum):
@@ -10,7 +10,7 @@ class MyEnum(Enum):
 
 
 def test_default():
-    with assert_raises(TypeError):
+    with assert_raises(MarshalError):
         marshal({(1, 2): '1'})
 
 
@@ -25,9 +25,9 @@ def test_bool_none():
     assert unmarshal({'true': 1}, Dict[bool, int]) == {True: 1}
     assert unmarshal({'null': 1}, Dict[type(None), int]) == {None: 1}
 
-    with assert_raises(ValueError):
+    with assert_raises(UnmarshalError):
         unmarshal({'x': 1}, Dict[bool, int])
 
-    with assert_raises(ValueError):
+    with assert_raises(UnmarshalError):
         unmarshal({'x': 1}, Dict[type(None), int])
 

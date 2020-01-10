@@ -1,5 +1,5 @@
 import attr
-from fieldmarshal import Registry, struct, field, marshal, unmarshal
+from fieldmarshal import Registry, UnmarshalError, struct, field, marshal, unmarshal
 from pytest import raises as assert_raises
 
 
@@ -31,7 +31,7 @@ def test_missing_default():
 
     assert unmarshal({'a': 1}, Foo) == Foo(1, 2)
 
-    with assert_raises(KeyError):
+    with assert_raises(UnmarshalError):
         assert unmarshal({'b': 1}, Foo)
 
 
